@@ -1,0 +1,97 @@
+<a class="back-link" routerLink="/panel/incidencias"><ua-icon name="arrow-left" [size]="16" />Bandeja de incidencias</a>
+<ua-page-header
+  titulo="Registro presencial"
+  descripcion="Registre una incidencia a nombre de un vecino que acude a la municipalidad o llama por teléfono."
+/>
+
+<div class="form-layout">
+  <section class="card">
+    <div class="card-header"><h2>1. Ciudadano que reporta</h2></div>
+
+    @if (seleccionado(); as c) {
+      <div class="selected-person">
+        <span class="avatar">{{ c.nombre.slice(0, 1) }}</span>
+        <div>
+          <strong>{{ c.nombre }}</strong>
+          <span class="muted small">DNI {{ c.dni }}{{ c.telefono ? ' · ' + c.telefono : '' }}</span>
+        </div>
+        <button type="button" class="btn btn-sm btn-ghost push-right" (click)="seleccionado.set(null)">Cambiar</button>
+      </div>
+    } @else if (nuevoCiudadano()) {
+      <ua-ciudadano-form (creado)="creado($event)" (cancelado)="nuevoCiudadano.set(false)" />
+    } @else {
+      <div class="field">
+        <label for="buscar-ciudadano">Buscar por nombre o DNI</label>
+        <div class="search search-block">
+          <ua-icon name="search" />
+          <input
+            id="buscar-ciudadano"
+            class="input"
+            type="search"
+            autocomplete="off"
+            [value]="busqueda()"
+            (input)="busqueda.set($any($event.target).value)"
+            placeholder="Escriba al menos 2 caracteres"
+          />
+        </div>
+        @if (faltaCiudadano()) {
+          <span class="field-error">Seleccione o registre al ciudadano que reporta.</span>
+        }
+      </div>
+      @if (ciudadanos.isLoading()) {
+        <ua-loading />
+      } @else if (busqueda().trim().length >= 2) {
+        @if (coincidencias().length === 0) {
+          <p class="muted small">No se encontraron coincidencias.</p>
+        } @else {
+          <ul class="list list-compact">
+            @for (c of coincidencias(); track c.id) {
+              <li>
+                <button type="button" class="list-item" (click)="elegir(c)">
+                  <div class="list-main">
+                    <strong>{{ c.nombre }}</strong>
+                    <span class="muted small">DNI {{ c.dni }}</span>
+                  </div>
+                  <ua-icon name="chevron-right" />
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      }
+      <button type="button" class="btn btn-secondary" (click)="nuevoCiudadano.set(true)"><ua-icon name="user-plus" />Registrar nuevo ciudadano</button>
+    }
+  </section>
+
+  <form class="card" [formGroup]="form" (ngSubmit)="guardar()" novalidate>
+    <div class="card-header"><h2>2. Datos de la incidencia</h2></div>
+    @if (error()) {
+      <div class="alert alert-error"><ua-icon name="alert" />{{ error() }}</div>
+    }
+    <ua-incidencia-campos [form]="form" />
+
+    <fieldset class="form-section">
+      <legend>Derivación</legend>
+      <div class="field field-narrow">
+        <label for="area">Área responsable <span class="optional">opcional</span></label>
+        <select id="area" class="input" [value]="areaId()" (change)="areaId.set($any($event.target).value)">
+          <option value="">Sin asignar por ahora</option>
+          @for (a of areas.value() ?? []; track a.id) {
+            <option [value]="a.id" [selected]="String(a.id) === areaId()">{{ a.nombre }}</option>
+          }
+        </select>
+      </div>
+    </fieldset>
+
+    <div class="form-actions">
+      <a class="btn btn-secondary" routerLink="/panel/incidencias">Cancelar</a>
+      <button type="submit" class="btn btn-primary" [disabled]="guardando()">
+        @if (guardando()) {
+          <span class="spinner spinner-sm"></span> Registrando…
+        } @else {
+          Registrar incidencia
+        }
+      </button>
+    </div>
+  </form>
+</div>

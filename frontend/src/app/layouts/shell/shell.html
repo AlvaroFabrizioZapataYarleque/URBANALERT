@@ -1,0 +1,78 @@
+<div class="shell" [class.menu-open]="menuAbierto()">
+  <aside class="sidebar" aria-label="Navegación principal">
+    <div class="sidebar-brand">
+      <span class="brand-mark"><ua-icon name="pin" [size]="16" [stroke]="2" /></span>
+      <div class="brand-text">
+        <strong>UrbanAlert</strong>
+        <span>{{ config.contexto }}</span>
+      </div>
+      <button type="button" class="btn-icon btn-ghost sidebar-close" (click)="menuAbierto.set(false)" aria-label="Cerrar menú">
+        <ua-icon name="x" />
+      </button>
+    </div>
+
+    <nav class="sidebar-nav">
+      @for (grupo of grupos(); track $index) {
+        @if (grupo.titulo) {
+          <span class="nav-section">{{ grupo.titulo }}</span>
+        }
+        @for (item of grupo.items; track item.ruta) {
+          <a
+            class="nav-link"
+            [routerLink]="item.ruta"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: item.exacto ?? false }"
+          >
+            <ua-icon [name]="item.icono" />
+            <span>{{ item.etiqueta }}</span>
+          </a>
+        }
+      }
+    </nav>
+
+    <div class="sidebar-footer">
+      <button type="button" class="nav-link" (click)="salir()">
+        <ua-icon name="logout" />
+        <span>Cerrar sesión</span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="sidebar-overlay" (click)="menuAbierto.set(false)"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button type="button" class="btn-icon btn-ghost topbar-menu" (click)="menuAbierto.set(true)" aria-label="Abrir menú">
+        <ua-icon name="menu" />
+      </button>
+      <span class="topbar-context">Municipalidad · {{ config.contexto }}</span>
+
+      <div class="topbar-user">
+        <button type="button" class="user-trigger" (click)="perfilAbierto.set(!perfilAbierto())" [attr.aria-expanded]="perfilAbierto()">
+          <span class="avatar">{{ iniciales() }}</span>
+          <span class="user-meta">
+            <strong>{{ session.username() }}</strong>
+            <span>{{ rol() }}</span>
+          </span>
+          <ua-icon name="chevron-down" [size]="14" />
+        </button>
+        @if (perfilAbierto()) {
+          <div class="dropdown" role="menu">
+            <div class="dropdown-head">
+              <strong>{{ session.username() }}</strong>
+              <span class="muted small">{{ rol() }}</span>
+            </div>
+            @if (session.tieneRol('CIUDADANO')) {
+              <a class="dropdown-item" routerLink="/portal/perfil" role="menuitem"><ua-icon name="user" />Mi perfil</a>
+            }
+            <button type="button" class="dropdown-item" (click)="salir()" role="menuitem"><ua-icon name="logout" />Cerrar sesión</button>
+          </div>
+        }
+      </div>
+    </header>
+
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
+</div>

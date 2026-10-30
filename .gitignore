@@ -1,0 +1,56 @@
+# ============================================================
+# UrbanAlert — .gitignore (backend Spring Boot + frontend Angular)
+# ============================================================
+
+# ---------- Secretos y configuracion local ----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+application-local.properties
+application-local.yml
+
+# ---------- Java / Maven (backend) ----------
+backend/target/
+target/
+*.class
+*.log
+hs_err_pid*
+replay_pid*
+.mvn/wrapper/maven-wrapper.jar
+
+# ---------- Node / Angular (frontend) ----------
+node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/coverage/
+npm-debug.log*
+yarn-error.log*
+.npm/
+
+# ---------- IDE ----------
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.settings/
+.project
+.classpath
+.factorypath
+
+# ---------- Sistema operativo / temporales ----------
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+tmp/
+
+# ---------- Configuracion local de herramientas ----------
+.claude/

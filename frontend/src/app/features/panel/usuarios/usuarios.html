@@ -1,0 +1,134 @@
+<ua-page-header titulo="Usuarios" descripcion="Cuentas de acceso del personal municipal y de los vecinos.">
+  <button type="button" class="btn btn-primary" (click)="abrir()"><ua-icon name="user-plus" />Nuevo usuario</button>
+</ua-page-header>
+
+@if (formAbierto()) {
+  <section class="card form-card">
+    <div class="card-header">
+      <div>
+        <h2>Alta de personal municipal</h2>
+        <p class="muted small">Los ciudadanos crean su propia cuenta desde el portal.</p>
+      </div>
+    </div>
+    <form [formGroup]="form" (ngSubmit)="guardar()" novalidate>
+      @if (error()) {
+        <div class="alert alert-error"><ua-icon name="alert" />{{ error() }}</div>
+      }
+      <div class="grid-2">
+        <div class="field">
+          <label for="u-username">Usuario</label>
+          <input id="u-username" class="input" formControlName="username" maxlength="50" autocomplete="off" />
+          <ua-field-error [control]="form.controls.username" requerido="Ingrese el usuario." patron="Solo letras, números, punto, guion y guion bajo." />
+        </div>
+        <div class="field">
+          <label for="u-password">Contraseña inicial</label>
+          <input id="u-password" class="input" type="password" formControlName="password" maxlength="72" autocomplete="new-password" />
+          <ua-field-error [control]="form.controls.password" requerido="Ingrese la contraseña." patron="Mínimo 8 caracteres, con al menos una letra y un número." />
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label for="u-rol">Rol</label>
+          <select id="u-rol" class="input" formControlName="rol">
+            <option value="OPERADOR">Operador de área</option>
+            <option value="ADMIN">Administrador municipal</option>
+          </select>
+        </div>
+        @if (form.controls.rol.value === 'OPERADOR') {
+          <div class="field">
+            <label for="u-area">Área</label>
+            <select id="u-area" class="input" formControlName="areaId">
+              <option value="" disabled>Seleccione un área</option>
+              @for (a of areas.value() ?? []; track a.id) {
+                <option [value]="a.id">{{ a.nombre }}</option>
+              }
+            </select>
+            <ua-field-error [control]="form.controls.areaId" requerido="Seleccione un área." />
+          </div>
+        }
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" (click)="formAbierto.set(false)">Cancelar</button>
+        <button type="submit" class="btn btn-primary" [disabled]="guardando()">
+          @if (guardando()) {
+            <span class="spinner spinner-sm"></span>
+          }
+          Crear usuario
+        </button>
+      </div>
+    </form>
+  </section>
+}
+
+<section class="card card-flush">
+  <div class="toolbar">
+    <div class="search">
+      <ua-icon name="search" />
+      <input class="input" type="search" placeholder="Buscar por usuario o área" [value]="tabla.texto()" (input)="tabla.buscar($any($event.target).value)" />
+    </div>
+    <select class="input" [value]="rolFiltro()" (change)="rolFiltro.set($any($event.target).value)" aria-label="Rol">
+      <option value="">Todos los roles</option>
+      <option value="ADMIN">Administrador municipal</option>
+      <option value="OPERADOR">Operador de área</option>
+      <option value="CIUDADANO">Ciudadano</option>
+    </select>
+    <span class="muted small push-right">{{ tabla.total() }} cuentas</span>
+  </div>
+
+  @if (lista.error()) {
+    <div class="card-body"><div class="alert alert-error"><ua-icon name="alert" />{{ errorLista() }}</div></div>
+  } @else if (lista.isLoading() && !lista.hasValue()) {
+    <ua-loading />
+  } @else if (tabla.total() === 0) {
+    <ua-empty titulo="Sin resultados" mensaje="No se encontraron cuentas." icono="shield" />
+  } @else {
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Rol</th>
+            <th>Área</th>
+            <th>Creación</th>
+            <th>Estado</th>
+            <th><span class="sr-only">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (u of tabla.visibles(); track u.id) {
+            <tr>
+              <td class="cell-strong">{{ u.username }}</td>
+              <td>
+                @for (r of u.roles; track r) {
+                  <span class="tag">{{ r | label: 'rol' }}</span>
+                }
+              </td>
+              <td class="cell-muted">{{ u.areaNombre || '—' }}</td>
+              <td class="nowrap">{{ u.fechaCreacion | date: 'dd/MM/yyyy' }}</td>
+              <td>
+                <span class="status" [class.status-on]="u.habilitado">{{ u.habilitado ? 'Habilitada' : 'Deshabilitada' }}</span>
+              </td>
+              <td class="cell-actions">
+                @if (u.username !== session.username()) {
+                  <button
+                    type="button"
+                    class="btn btn-sm"
+                    [class.btn-secondary]="!u.habilitado"
+                    [class.btn-danger-outline]="u.habilitado"
+                    [disabled]="cambiando() === u.id"
+                    (click)="alternar(u)"
+                  >
+                    {{ u.habilitado ? 'Deshabilitar' : 'Habilitar' }}
+                  </button>
+                } @else {
+                  <span class="muted small">Su cuenta</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <ua-paginator [total]="tabla.total()" [pagina]="tabla.pagina()" [tamano]="tabla.tamano()" (paginaChange)="tabla.irA($event)" (tamanoChange)="tabla.cambiarTamano($event)" />
+  }
+</section>

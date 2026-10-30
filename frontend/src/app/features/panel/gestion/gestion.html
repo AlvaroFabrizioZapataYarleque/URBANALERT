@@ -1,0 +1,150 @@
+<a class="back-link" routerLink="/panel/incidencias"><ua-icon name="arrow-left" [size]="16" />Bandeja de incidencias</a>
+
+@if (incidencia.error()) {
+  <div class="alert alert-error"><ua-icon name="alert" />{{ errorMsg() }}</div>
+} @else if (incidencia.value(); as i) {
+  <div class="detail-grid">
+    <div class="detail-main">
+      <ua-incidencia-ficha [incidencia]="i" [mostrarCiudadano]="true" />
+
+      <section class="card">
+        <div class="card-header"><h2>Datos del ciudadano</h2></div>
+        @if (ciudadano.value(); as c) {
+          <dl class="meta-grid">
+            <div><dt>Nombre</dt><dd>{{ c.nombre }}</dd></div>
+            <div><dt>DNI</dt><dd>{{ c.dni }}</dd></div>
+            <div><dt>Teléfono</dt><dd>{{ c.telefono || '—' }}</dd></div>
+            <div><dt>Correo</dt><dd>{{ c.email || '—' }}</dd></div>
+          </dl>
+        } @else if (ciudadano.error()) {
+          <p class="muted small">No se pudieron cargar los datos de contacto.</p>
+        } @else {
+          <ua-loading />
+        }
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h2>Historial de seguimiento</h2>
+          <span class="muted small">{{ historial.value()?.length ?? 0 }} movimientos</span>
+        </div>
+        @if (historial.isLoading() && !historial.hasValue()) {
+          <ua-loading />
+        } @else {
+          <ua-historial [items]="historial.value() ?? []" />
+        }
+      </section>
+    </div>
+
+    <aside class="detail-side">
+      <section class="card">
+        <div class="card-header"><h2>Atención</h2></div>
+        <div class="kv">
+          <span class="muted small">Antigüedad</span>
+          <strong>{{ antiguedad() }} {{ antiguedad() === 1 ? 'día' : 'días' }}</strong>
+        </div>
+
+        @if (session.puede('INCIDENCIA_CAMBIAR_ESTADO')) {
+          <div class="action-block">
+            <h3 class="subhead">Cambiar estado</h3>
+            @if (transiciones().length === 0) {
+              <p class="muted small">
+                @if (cerrada()) {
+                  La incidencia está cerrada. No admite más cambios.
+                } @else {
+                  No hay cambios de estado disponibles para su rol.
+                }
+              </p>
+            } @else {
+              <select class="input" [value]="nuevoEstado()" (change)="nuevoEstado.set($any($event.target).value)" aria-label="Nuevo estado">
+                @for (t of transiciones(); track t.value) {
+                  <option [value]="t.value" [selected]="t.value === nuevoEstado()">{{ t.label }}</option>
+                }
+              </select>
+              @if (requiereArea()) {
+                <p class="field-warn">Asigne un área responsable antes de iniciar la atención.</p>
+              }
+              <button
+                type="button"
+                class="btn btn-primary btn-block"
+                (click)="cambiarEstado()"
+                [disabled]="enCurso() !== null || requiereArea()"
+              >
+                @if (enCurso() === 'estado') {
+                  <span class="spinner spinner-sm"></span>
+                }
+                Actualizar estado
+              </button>
+            }
+          </div>
+        }
+
+        @if (session.puede('INCIDENCIA_ASIGNAR_AREA')) {
+          <div class="action-block">
+            <h3 class="subhead">Área responsable</h3>
+            <select class="input" [value]="nuevaArea()" (change)="nuevaArea.set($any($event.target).value)" [disabled]="cerrada()" aria-label="Área responsable">
+              <option value="" disabled [selected]="!nuevaArea()">Seleccione un área</option>
+              @for (a of areas.value() ?? []; track a.id) {
+                <option [value]="a.id" [selected]="String(a.id) === nuevaArea()">{{ a.nombre }}</option>
+              }
+            </select>
+            <button
+              type="button"
+              class="btn btn-secondary btn-block"
+              (click)="asignarArea()"
+              [disabled]="cerrada() || enCurso() !== null || !nuevaArea() || +nuevaArea() === i.areaResponsableId"
+            >
+              @if (enCurso() === 'area') {
+                <span class="spinner spinner-sm"></span>
+              }
+              {{ i.areaResponsableId ? 'Derivar a esta área' : 'Asignar área' }}
+            </button>
+          </div>
+        }
+
+        @if (session.puede('INCIDENCIA_EDITAR')) {
+          <div class="action-block">
+            <h3 class="subhead">Clasificación y prioridad</h3>
+            <label class="field-compact">
+              <span class="small muted">Categoría</span>
+              <select class="input" [value]="nuevaCategoria()" (change)="nuevaCategoria.set($any($event.target).value)" [disabled]="cerrada()">
+                @for (c of categorias; track c.value) {
+                  <option [value]="c.value" [selected]="c.value === nuevaCategoria()">{{ c.label }}</option>
+                }
+              </select>
+            </label>
+            <label class="field-compact">
+              <span class="small muted">Prioridad</span>
+              <select class="input" [value]="nuevaPrioridad()" (change)="nuevaPrioridad.set($any($event.target).value)" [disabled]="cerrada()">
+                @for (p of prioridades; track p.value) {
+                  <option [value]="p.value" [selected]="p.value === nuevaPrioridad()">{{ p.label }}</option>
+                }
+              </select>
+            </label>
+            <button
+              type="button"
+              class="btn btn-secondary btn-block"
+              (click)="guardarClasificacion()"
+              [disabled]="cerrada() || enCurso() !== null || !clasificacionCambiada()"
+            >
+              @if (enCurso() === 'clasificacion') {
+                <span class="spinner spinner-sm"></span>
+              }
+              Guardar clasificación
+            </button>
+          </div>
+        }
+
+        @if (session.puede('INCIDENCIA_ELIMINAR')) {
+          <div class="action-block action-block-danger">
+            <button type="button" class="btn btn-danger-outline btn-block" (click)="eliminar()" [disabled]="enCurso() !== null">
+              <ua-icon name="trash" />Eliminar incidencia
+            </button>
+          </div>
+        }
+      </section>
+    </aside>
+  </div>
+} @else {
+  <ua-loading />
+}

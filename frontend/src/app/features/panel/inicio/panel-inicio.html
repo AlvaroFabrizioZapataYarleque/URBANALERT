@@ -1,0 +1,162 @@
+<ua-page-header
+  titulo="Dashboard"
+  [descripcion]="esAdmin() ? 'Resumen general de las incidencias reportadas en el distrito.' : 'Resumen de las incidencias asignadas a su área.'"
+>
+  <button type="button" class="btn btn-secondary" (click)="recargar()"><ua-icon name="refresh" />Actualizar</button>
+  <a class="btn btn-primary" routerLink="/panel/incidencias"><ua-icon name="inbox" />Ir a la bandeja</a>
+</ua-page-header>
+
+@if (error()) {
+  <div class="alert alert-error"><ua-icon name="alert" />{{ error() }}</div>
+}
+
+<div class="stats-grid" [class.stats-grid-6]="esAdmin()">
+  <ua-stat-card etiqueta="Total de incidencias" [valor]="tarjetas().total" icono="list" tono="slate" />
+  <ua-stat-card etiqueta="Pendientes" [valor]="tarjetas().registradas" icono="inbox" tono="blue" detalle="Registradas sin atender" />
+  <ua-stat-card etiqueta="En atención" [valor]="tarjetas().enProceso" icono="refresh" tono="amber" />
+  <ua-stat-card etiqueta="Resueltas" [valor]="tarjetas().resueltas" icono="check" tono="green" detalle="Incluye cerradas" />
+  @if (indicadores.value(); as ind) {
+    <ua-stat-card
+      etiqueta="Vencidas"
+      [valor]="ind.pendientesAntiguas"
+      icono="alert"
+      tono="red"
+      [detalle]="'Sin resolver hace más de ' + ind.diasUmbral + ' días'"
+    />
+    <ua-stat-card
+      etiqueta="Tiempo promedio de resolución"
+      [valor]="(ind.tiempoPromedioResolucionHoras | number: '1.0-1') + ' h'"
+      icono="clock"
+      tono="slate"
+      [detalle]="ind.tiempoPromedioResolucionHoras > 24 ? '≈ ' + (ind.tiempoPromedioResolucionHoras / 24 | number: '1.0-1') + ' días' : ''"
+    />
+  }
+</div>
+
+@if (esAdmin()) {
+  <div class="grid-2-lg">
+    <section class="card">
+      <div class="card-header">
+        <h2>Incidencias por estado</h2>
+        <label class="inline-field small muted">
+          Umbral de vencimiento
+          <select class="input input-sm" [value]="dias()" (change)="dias.set(+$any($event.target).value)">
+            @for (d of [3, 7, 15, 30]; track d) {
+              <option [value]="d" [selected]="d === dias()">{{ d }} días</option>
+            }
+          </select>
+        </label>
+      </div>
+      <ua-bar-chart [datos]="barrasEstado()" />
+    </section>
+    <section class="card">
+      <div class="card-header"><h2>Incidencias por categoría</h2></div>
+      <ua-bar-chart [datos]="barrasCategoria()" />
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="card-header">
+      <div>
+        <h2>Análisis por periodo y área</h2>
+        <p class="muted small">Distribución calculada sobre el listado de incidencias con los filtros aplicados.</p>
+      </div>
+    </div>
+    <div class="toolbar toolbar-inline">
+      <label class="inline-field small">Desde <input class="input input-sm" type="date" [value]="desde()" (change)="desde.set($any($event.target).value)" /></label>
+      <label class="inline-field small">Hasta <input class="input input-sm" type="date" [value]="hasta()" (change)="hasta.set($any($event.target).value)" /></label>
+      <label class="inline-field small">
+        Área
+        <select class="input input-sm" [value]="areaId()" (change)="areaId.set($any($event.target).value)">
+          <option value="">Todas</option>
+          @for (a of areas.value() ?? []; track a.id) {
+            <option [value]="a.id" [selected]="String(a.id) === areaId()">{{ a.nombre }}</option>
+          }
+        </select>
+      </label>
+      @if (hayFiltroPeriodo()) {
+        <button type="button" class="btn btn-sm btn-ghost" (click)="limpiar()">Limpiar filtros</button>
+      }
+      <span class="muted small push-right">{{ lista.value()?.length ?? 0 }} incidencias en el periodo</span>
+    </div>
+    @if (lista.isLoading()) {
+      <ua-loading />
+    } @else {
+      <div class="grid-3-lg">
+        <div>
+          <h3 class="subhead">Por prioridad</h3>
+          <ua-bar-chart [datos]="barrasPrioridad()" />
+        </div>
+        <div>
+          <h3 class="subhead">Por área responsable</h3>
+          <ua-bar-chart [datos]="barrasArea()" />
+        </div>
+        <div>
+          <h3 class="subhead">Tiempo promedio de resolución por categoría</h3>
+          <ua-bar-chart [datos]="barrasTiempo()" sufijo=" h" />
+        </div>
+      </div>
+    }
+  </section>
+} @else {
+  <div class="grid-2-lg">
+    <section class="card">
+      <div class="card-header"><h2>Por estado</h2></div>
+      <ua-bar-chart [datos]="barrasEstado()" />
+    </section>
+    <section class="card">
+      <div class="card-header"><h2>Por prioridad</h2></div>
+      <ua-bar-chart [datos]="barrasPrioridad()" />
+    </section>
+  </div>
+}
+
+<section class="card card-flush">
+  <div class="card-header card-header-pad">
+    <div>
+      <h2>Requieren atención</h2>
+      <p class="muted small">Pendientes ordenadas por prioridad y antigüedad.</p>
+    </div>
+    @if (esAdmin() && sinArea() > 0) {
+      <span class="tag tag-warn"><ua-icon name="alert" [size]="14" />{{ sinArea() }} sin área asignada</span>
+    }
+  </div>
+  @if (lista.isLoading()) {
+    <ua-loading />
+  } @else if (porAtender().length === 0) {
+    <ua-empty titulo="Sin pendientes" mensaje="No hay incidencias registradas o en proceso." icono="check" />
+  } @else {
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Incidencia</th>
+            <th>Área</th>
+            <th>Reportada</th>
+            <th>Prioridad</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (i of porAtender(); track i.id) {
+            <tr class="row-link" [routerLink]="['/panel/incidencias', i.id]">
+              <td class="code">#{{ i.id }}</td>
+              <td>
+                <span class="cell-strong">{{ i.titulo }}</span>
+                <span class="cell-sub">{{ i.categoria | label: 'categoria' }}</span>
+              </td>
+              <td>{{ i.areaResponsableNombre || 'Sin asignar' }}</td>
+              <td class="nowrap">
+                {{ i.fechaReporte | date: 'dd/MM/yyyy' }}
+                <span class="cell-sub">hace {{ dias_(i.fechaReporte) }} d</span>
+              </td>
+              <td><ua-prioridad-badge [prioridad]="i.prioridad" /></td>
+              <td><ua-estado-badge [estado]="i.estado" /></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

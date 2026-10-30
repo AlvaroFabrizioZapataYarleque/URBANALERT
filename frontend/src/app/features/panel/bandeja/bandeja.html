@@ -1,0 +1,122 @@
+<ua-page-header
+  titulo="Bandeja de incidencias"
+  [descripcion]="esAdmin() ? 'Reportes recibidos de los vecinos. Clasifique, derive y haga seguimiento.' : 'Reportes derivados a su área.'"
+>
+  <button type="button" class="btn btn-secondary" (click)="lista.reload()"><ua-icon name="refresh" />Actualizar</button>
+  <a class="btn btn-primary" routerLink="/panel/registro"><ua-icon name="plus" />Registrar incidencia</a>
+</ua-page-header>
+
+<section class="card card-flush">
+  <div class="toolbar">
+    <div class="search">
+      <ua-icon name="search" />
+      <input
+        class="input"
+        type="search"
+        placeholder="Buscar por código, título, ciudadano o dirección"
+        [value]="tabla.texto()"
+        (input)="tabla.buscar($any($event.target).value)"
+      />
+    </div>
+    <select class="input" [value]="estado()" (change)="estado.set($any($event.target).value)" aria-label="Estado">
+      <option value="">Estado: todos</option>
+      @for (e of estados; track e.value) {
+        <option [value]="e.value" [selected]="e.value === estado()">{{ e.label }}</option>
+      }
+    </select>
+    <select class="input" [value]="prioridad()" (change)="prioridad.set($any($event.target).value)" aria-label="Prioridad">
+      <option value="">Prioridad: todas</option>
+      @for (p of prioridades; track p.value) {
+        <option [value]="p.value" [selected]="p.value === prioridad()">{{ p.label }}</option>
+      }
+    </select>
+    <select class="input" [value]="categoria()" (change)="categoria.set($any($event.target).value)" aria-label="Categoría">
+      <option value="">Categoría: todas</option>
+      @for (c of categorias; track c.value) {
+        <option [value]="c.value" [selected]="c.value === categoria()">{{ c.label }}</option>
+      }
+    </select>
+    @if (esAdmin()) {
+      <select class="input" [value]="areaId()" (change)="areaId.set($any($event.target).value)" aria-label="Área">
+        <option value="">Área: todas</option>
+        @for (a of areas.value() ?? []; track a.id) {
+          <option [value]="a.id" [selected]="String(a.id) === areaId()">{{ a.nombre }}</option>
+        }
+      </select>
+    }
+  </div>
+  <div class="toolbar toolbar-secondary">
+    <label class="inline-field small">Desde <input class="input input-sm" type="date" [value]="desde()" (change)="desde.set($any($event.target).value)" /></label>
+    <label class="inline-field small">Hasta <input class="input input-sm" type="date" [value]="hasta()" (change)="hasta.set($any($event.target).value)" /></label>
+    @if (esAdmin()) {
+      <label class="checkbox small">
+        <input type="checkbox" [checked]="soloSinArea()" (change)="soloSinArea.set($any($event.target).checked)" />
+        Solo sin área asignada
+      </label>
+    }
+    @if (filtrosActivos() > 0 || tabla.texto()) {
+      <button type="button" class="btn btn-sm btn-ghost" (click)="limpiar()"><ua-icon name="x" [size]="14" />Limpiar filtros</button>
+    }
+    <span class="muted small push-right">{{ tabla.total() }} resultados</span>
+  </div>
+
+  @if (lista.error()) {
+    <div class="card-body"><div class="alert alert-error"><ua-icon name="alert" />{{ errorMsg() }}</div></div>
+  } @else if (lista.isLoading() && !lista.hasValue()) {
+    <ua-loading />
+  } @else if (tabla.total() === 0) {
+    <ua-empty titulo="No hay incidencias" mensaje="No se encontraron reportes con los criterios seleccionados." />
+  } @else {
+    <div class="table-wrap" [class.is-refreshing]="lista.isLoading()">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th><button type="button" class="th-sort" (click)="tabla.ordenar('id')">Código <ua-icon [name]="icono('id')" [size]="12" /></button></th>
+            <th><button type="button" class="th-sort" (click)="tabla.ordenar('ciudadano')">Ciudadano <ua-icon [name]="icono('ciudadano')" [size]="12" /></button></th>
+            <th><button type="button" class="th-sort" (click)="tabla.ordenar('categoria')">Categoría <ua-icon [name]="icono('categoria')" [size]="12" /></button></th>
+            <th>Descripción</th>
+            <th>Ubicación</th>
+            <th><button type="button" class="th-sort" (click)="tabla.ordenar('fecha')">Fecha y hora <ua-icon [name]="icono('fecha')" [size]="12" /></button></th>
+            <th><button type="button" class="th-sort" (click)="tabla.ordenar('prioridad')">Prioridad <ua-icon [name]="icono('prioridad')" [size]="12" /></button></th>
+            <th><button type="button" class="th-sort" (click)="tabla.ordenar('estado')">Estado <ua-icon [name]="icono('estado')" [size]="12" /></button></th>
+            <th><button type="button" class="th-sort" (click)="tabla.ordenar('area')">Área <ua-icon [name]="icono('area')" [size]="12" /></button></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (i of tabla.visibles(); track i.id) {
+            <tr class="row-link" (click)="abrir(i.id)" (keydown.enter)="abrir(i.id)" tabindex="0">
+              <td class="code">#{{ i.id }}</td>
+              <td class="nowrap">{{ i.ciudadanoNombre }}</td>
+              <td class="nowrap">{{ i.categoria | label: 'categoria' }}</td>
+              <td class="cell-desc">
+                <span class="cell-strong">{{ i.titulo }}</span>
+                <span class="cell-sub clamp">{{ i.descripcion }}</span>
+              </td>
+              <td class="cell-muted">{{ i.direccionReferencial || '—' }}</td>
+              <td class="nowrap">
+                {{ i.fechaReporte | date: 'dd/MM/yyyy' }}
+                <span class="cell-sub">{{ i.fechaReporte | date: 'HH:mm' }}</span>
+              </td>
+              <td><ua-prioridad-badge [prioridad]="i.prioridad" /></td>
+              <td><ua-estado-badge [estado]="i.estado" /></td>
+              <td>
+                @if (i.areaResponsableNombre) {
+                  {{ i.areaResponsableNombre }}
+                } @else {
+                  <span class="tag tag-warn">Sin asignar</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <ua-paginator
+      [total]="tabla.total()"
+      [pagina]="tabla.pagina()"
+      [tamano]="tabla.tamano()"
+      (paginaChange)="tabla.irA($event)"
+      (tamanoChange)="tabla.cambiarTamano($event)"
+    />
+  }
+</section>
